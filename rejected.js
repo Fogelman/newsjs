@@ -6,7 +6,7 @@ async function setup() {
   let channel = await connection.createChannel();
   await channel.assertExchange("processing", "direct", { durable: true });
   await channel.assertQueue("processing.rejected", { durable: true });
-  await channel.bindQueue("processing.rejected", "processing", "todos");
+  await channel.bindQueue("processing.rejected", "processing", "rejected");
   await connection.close();
 }
 
@@ -17,7 +17,7 @@ function consume({ connection, channel }) {
       let data = JSON.parse(body);
       // let id = data.requestId;
       // let processingResults = data.processingResults;
-      console.log(data);
+      console.log(body);
       await channel.ack(msg);
     });
 

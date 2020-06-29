@@ -19,19 +19,19 @@ function publish(channel, { routingKey, exchangeName, data }) {
   });
 }
 
-async function listen() {
+async function emit() {
   // connect to Rabbit MQ
 
   let connection = await amqp.connect(str);
   let channel = await connection.createConfirmChannel();
 
   await publish(channel, {
-    routingKey: "todos",
-    exchangeName: "",
+    routingKey: "request",
+    exchangeName: "processing",
     data: "Do this job",
   });
 
   await connection.close();
 }
 
-listen();
+emit();
