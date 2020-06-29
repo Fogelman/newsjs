@@ -1,11 +1,11 @@
 const amqp = require("amqplib");
 const str = "amqp://localhost";
 
-function publish(channel, { routingKey, exchangeName, data }) {
+function publish(channel, { exchange = "", key, data }) {
   return new Promise((resolve, reject) => {
     channel.publish(
-      exchangeName,
-      routingKey,
+      exchange,
+      key,
       Buffer.from(JSON.stringify(data), "utf-8"),
       { persistent: true },
       function (err, ok) {
@@ -20,14 +20,12 @@ function publish(channel, { routingKey, exchangeName, data }) {
 }
 
 async function emit() {
-  // connect to Rabbit MQ
-
   let connection = await amqp.connect(str);
   let channel = await connection.createConfirmChannel();
 
   await publish(channel, {
-    routingKey: "request",
-    exchangeName: "processing",
+    exchange: "processing",
+    key: "request",
     data: "Do this job",
   });
 
