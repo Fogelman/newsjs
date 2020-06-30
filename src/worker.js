@@ -1,58 +1,83 @@
 const amqp = require("amqplib");
+const DB = require("./utils/db");
+const Parse = require("./utils/parse");
+const Request = require("./utils/request");
 
-const str = "amqp://localhost";
-async function setup() {
-  let connection = await amqp.connect(str);
-  let channel = await connection.createConfirmChannel();
-  await channel.assertQueue("processing.request", {
-    durable: true,
-    deadLetterExchange: "processing",
-    deadLetterRoutingKey: "rejected",
-  });
+require("dotenv/config");
 
-  await channel.assertExchange("processing", "direct", { durable: true });
-  await channel.bindQueue("processing.request", "processing", "request");
+class Worker {
+  constructor(uri) {
+    this.uri = uri;
+    this.connection = null;
+    this.db = new DB();
+  }
 
-  await connection.close();
-}
+  async connect() {
+    this.connection = await amqp.connect(this.uri);
+    await this.db.connect();
+  }
 
-function consume({ connection, channel }) {
-  return new Promise((resolve, reject) => {
-    channel.consume("processing.request", async function (msg) {
-      let body = msg.content.toString();
-      let data = JSON.parse(body);
-      let id = data.requestId;
-      // let processingResults = data.processingResults;
-      console.log(body);
-
-      // await channel.reject(msg, false);
-      await channel.ack(msg);
+  async setup() {
+    const { connection } = this;
+    let channel = await connection.createChannel();
+    await channel.assertQueue("processing.request", {
+      durable: true,
+      deadLetterExchange: "processing",
+      deadLetterRoutingKey: "rejected",
     });
 
-    // handle connection closed
-    connection.on("close", (err) => {
-      return reject(err);
+    await channel.assertExchange("processing", "direct", { durable: true });
+    await channel.bindQueue("processing.request", "processing", "request");
+  }
+
+  async listen() {
+    // connect to Rabbit MQ
+    const { connection } = this;
+    let channel = await connection.createChannel();
+    await channel.prefetch(5);
+
+    // start consuming messages
+    await this.consume({ connection, channel });
+  }
+
+  async job(payload, db) {
+    let { href, baseURL } = payload;
+    let res = await Request.get({ url: href, baseURL });
+    let files = Parse.files(res);
+    await db.insert({ ...payload, files });
+  }
+
+  async consume({ connection, channel }) {
+    const { job, db } = this;
+    return new Promise((resolve, reject) => {
+      channel.consume("processing.request", async function (msg) {
+        let body = msg.content.toString();
+        let data = JSON.parse(body);
+        try {
+          await job(data, db);
+          await channel.ack(msg);
+        } catch (err) {
+          console.error(err);
+          await channel.reject(msg, false);
+        }
+      });
+
+      // handle connection closed
+      connection.on("close", (err) => {
+        return reject(err);
+      });
+
+      // handle errors
+      connection.on("error", (err) => {
+        return reject(err);
+      });
     });
-
-    // handle errors
-    connection.on("error", (err) => {
-      return reject(err);
-    });
-  });
-}
-
-async function listen() {
-  // connect to Rabbit MQ
-  let connection = await amqp.connect(str);
-
-  let channel = await connection.createChannel();
-  await channel.prefetch(1);
-
-  // start consuming messages
-  await consume({ connection, channel });
+  }
 }
 
 (async () => {
-  await setup();
-  await listen();
+  const worker = new Worker(process.env.RABBITMQ_URI);
+  await worker.connect();
+  await worker.setup();
+  await worker.listen();
 })();
