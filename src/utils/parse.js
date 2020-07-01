@@ -5,7 +5,7 @@ class Parse {
     const doc = cheerio.load(html);
     const arr = [];
     doc(".artifact-description").each((i, el) => {
-      const author = doc(el).find(".artifact-author > span").text().trim();
+      const author = doc(el).find(`div.artifact\-author`).text().trim();
       const link = doc(el).find("a");
       const title = link.text();
       const href = link.attr("href");
@@ -13,6 +13,7 @@ class Parse {
       const date = doc(el).find("span.date").text();
 
       arr.push({
+        author,
         title,
         href,
         author,

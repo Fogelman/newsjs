@@ -1,4 +1,5 @@
-const Client = require("mongodb").MongoClient;
+const { ObjectID, MongoClient } = require("mongodb");
+
 require("dotenv/config");
 
 class DB {
@@ -11,7 +12,7 @@ class DB {
 
   async connect() {
     const { database, collection } = this;
-    this.connection = new Client(this.uri, { useUnifiedTopology: true });
+    this.connection = new MongoClient(this.uri, { useUnifiedTopology: true });
     await this.connection.connect();
     this.collection = this.connection.db(database).collection(collection);
   }
@@ -20,8 +21,15 @@ class DB {
     return await this.collection.insertOne({ ...payload });
   }
 
-  async update(id, payload) {
-    return await this.collection.updateOne({ _id: id }, { ...payload });
+  async insertMany(payload) {
+    return await this.collection.insertMany(payload);
+  }
+
+  async update(_id, payload) {
+    return await this.collection.updateOne(
+      { _id: ObjectID(_id) },
+      { $set: payload }
+    );
   }
 
   async find(filter = {}) {

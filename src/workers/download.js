@@ -23,8 +23,7 @@ class Worker {
     let channel = await connection.createChannel();
     await channel.assertQueue("processing.download", {
       durable: true,
-      deadLetterExchange: "processing",
-      deadLetterRoutingKey: "rejected",
+      deadLetterExchange: "rejected",
     });
 
     await channel.assertExchange("processing", "direct", { durable: true });

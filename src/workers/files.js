@@ -1,7 +1,7 @@
 const amqp = require("amqplib");
-const DB = require("./utils/db");
-const Parse = require("./utils/parse");
-const Request = require("./utils/request");
+const DB = require("./../utils/db");
+const Parse = require("./../utils/parse");
+const Request = require("./../utils/request");
 
 require("dotenv/config");
 
@@ -9,7 +9,10 @@ class Worker {
   constructor(uri) {
     this.uri = uri;
     this.connection = null;
-    this.db = new DB();
+    this.db = new DB({
+      database: process.env.MONGODB_DATABASE,
+      collection: process.env.MONGODB_COLLECTION,
+    });
   }
 
   async connect() {
@@ -20,14 +23,13 @@ class Worker {
   async setup() {
     const { connection } = this;
     let channel = await connection.createChannel();
-    await channel.assertQueue("processing.request", {
+    await channel.assertQueue("processing.files", {
       durable: true,
-      deadLetterExchange: "processing",
-      deadLetterRoutingKey: "rejected",
+      deadLetterExchange: "rejected",
     });
 
     await channel.assertExchange("processing", "direct", { durable: true });
-    await channel.bindQueue("processing.request", "processing", "request");
+    await channel.bindQueue("processing.files", "processing", "files");
   }
 
   async listen() {
@@ -41,16 +43,16 @@ class Worker {
   }
 
   async job(payload, db) {
-    let { href, baseURL } = payload;
+    let { href, baseURL, _id } = payload;
     let res = await Request.get({ url: href, baseURL });
     let files = Parse.files(res);
-    await db.insert({ ...payload, files });
+    await db.update(_id, { files });
   }
 
   async consume({ connection, channel }) {
     const { job, db } = this;
     return new Promise((resolve, reject) => {
-      channel.consume("processing.request", async function (msg) {
+      channel.consume("processing.files", async function (msg) {
         let body = msg.content.toString();
         let data = JSON.parse(body);
         try {

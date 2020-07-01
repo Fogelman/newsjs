@@ -1,8 +1,10 @@
 const axios = require("axios");
 
 class Request {
-  static async get({ url, baseURL }) {
-    const res = await axios.get(url, { baseURL }).then(({ data }) => data);
+  static async get({ url, baseURL, params = {} }) {
+    const res = await axios
+      .get(url, { baseURL, params })
+      .then(({ data }) => data);
     return res;
   }
 

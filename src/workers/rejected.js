@@ -1,7 +1,5 @@
 const amqp = require("amqplib");
 const DB = require("./../utils/db");
-const Parse = require("./../utils/parse");
-const Request = require("./../utils/request");
 
 require("dotenv/config");
 
@@ -9,7 +7,10 @@ class Worker {
   constructor(uri) {
     this.uri = uri;
     this.connection = null;
-    this.db = new DB({ database: "tasks", collection: "rejected" });
+    this.db = new DB({
+      database: process.env.MONGODB_DATABASE,
+      collection: process.env.MONGODB_COLLECTION_REJECTED,
+    });
   }
 
   async connect() {
@@ -21,9 +22,11 @@ class Worker {
     const { connection } = this;
     let channel = await connection.createChannel();
 
-    await channel.assertExchange("processing", "direct", { durable: true });
-    await channel.assertQueue("processing.rejected", { durable: true });
-    await channel.bindQueue("processing.rejected", "processing", "rejected");
+    await channel.assertExchange("rejected", "direct", { durable: true });
+    await channel.assertQueue("rejected.all", { durable: true });
+    await channel.bindQueue("rejected.all", "rejected", "download");
+    await channel.bindQueue("rejected.all", "rejected", "files");
+    await channel.bindQueue("rejected.all", "rejected", "pages");
   }
 
   async listen() {
@@ -43,11 +46,11 @@ class Worker {
   async consume({ connection, channel }) {
     const { job, db } = this;
     return new Promise((resolve, reject) => {
-      const tag = channel.consume("processing.rejected", async function (msg) {
+      const tag = channel.consume("rejected.all", async function (msg) {
         let body = msg.content.toString();
         let data = JSON.parse(body);
         try {
-          await job(data, db);
+          await job({ ...data, key: msg.fields.routingKey }, db);
           await channel.ack(msg);
         } catch (err) {
           console.error(err);
