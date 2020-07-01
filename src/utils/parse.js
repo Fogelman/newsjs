@@ -41,6 +41,22 @@ class Parse {
 
     return files;
   }
+
+  static id(href) {
+    let pattern = new RegExp(`\/id\/([0-9]+)`);
+    let result = pattern.exec(href);
+    return result ? result[1] : null;
+  }
+
+  static sequence(href) {
+    let pattern = new RegExp(`sequence=([0-9]+)`);
+    let result = pattern.exec(href);
+    return result ? result[1] : null;
+  }
+
+  static extension(filename) {
+    return filename.split(".").pop();
+  }
 }
 
 module.exports = Parse;

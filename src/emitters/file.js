@@ -1,36 +1,26 @@
+const Emit = require("./utils/emit");
 const amqp = require("amqplib");
 const fs = require("fs");
 const { resolve } = require("path");
 require("dotenv/config");
-const Emit = require("./utils/emit");
-const DB = require("./utils/db");
 
 async function run() {
   let connection = await amqp.connect(process.env.RABBITMQ_URI);
   let channel = await connection.createConfirmChannel();
+  let path = resolve(__dirname, "..", "tmp", "links.json");
+  const pages = JSON.parse(fs.readFileSync(path));
 
-  let db = new DB();
-  await db.connect();
-
-  const news = await db.find();
-  const files = news.flatMap((el) => {
-    return el.files ? el.files : [];
-  });
-
-  for (var i = 0; i < files.length; i++) {
-    var obj = files[i];
-
+  for (var i = 0; i < pages.length; i++) {
+    var obj = pages[i];
     await Emit.publish(channel, {
       exchange: "processing",
-      key: "download",
+      key: "request",
       data: {
         ...obj,
         baseURL: "https://www2.senado.leg.br",
       },
     });
   }
-
-  await db.close();
 
   await connection.close();
 }

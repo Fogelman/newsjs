@@ -1,7 +1,7 @@
 const amqp = require("amqplib");
-const DB = require("./utils/db");
-const Parse = require("./utils/parse");
-const Request = require("./utils/request");
+const DB = require("./../utils/db");
+const Parse = require("./../utils/parse");
+const Request = require("./../utils/request");
 
 require("dotenv/config");
 
@@ -9,7 +9,7 @@ class Worker {
   constructor(uri) {
     this.uri = uri;
     this.connection = null;
-    this.db = new DB();
+    this.db = new DB({ database: "tasks", collection: "rejected" });
   }
 
   async connect() {

@@ -2,11 +2,11 @@ const Client = require("mongodb").MongoClient;
 require("dotenv/config");
 
 class DB {
-  constructor() {
+  constructor({ database = "tasks", collection = "documents" } = {}) {
     this.connection = null;
     this.uri = process.env.MONGODB_URI;
-    this.database = "tasks";
-    this.collection = "documents";
+    this.database = database;
+    this.collection = collection;
   }
 
   async connect() {
@@ -24,6 +24,13 @@ class DB {
     return await this.collection.updateOne({ _id: id }, { ...payload });
   }
 
+  async find(filter = {}) {
+    return await this.collection.find(filter).toArray();
+  }
+
+  async count(filter = {}) {
+    return await this.collection.countDocuments(filter);
+  }
   async close() {
     await this.connection.close();
   }
